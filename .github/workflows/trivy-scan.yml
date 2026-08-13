@@ -1,0 +1,45 @@
+name: Trivy Scan
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  schedule:
+    - cron: '0 3 * * *'
+
+jobs:
+  trivy-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show existing scanner config
+        run: |
+          echo "Listing devops/scanners:"
+          ls -la devops/scanners || true
+          echo "---- trivy.yaml (first 200 lines) ----"
+          sed -n '1,200p' devops/scanners/trivy.yaml || true
+
+      - name: Install Trivy
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget gnupg lsb-release
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+          echo deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main | sudo tee /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update
+          sudo apt-get install -y trivy
+
+      - name: Filesystem vulnerability scan
+        run: |
+          trivy fs --exit-code 1 --severity HIGH,CRITICAL --format table --cache-dir /tmp/trivy-cache .
+
+      - name: IaC / config scan (uses `devops/scanners/trivy.yaml` if applicable)
+        run: |
+          # Try to run Trivy's config scan against repo using the existing config file
+          if command -v trivy >/dev/null 2>&1; then
+            trivy config --config devops/scanners/trivy.yaml --format table . || echo "trivy config step failed or not applicable"
+          else
+            echo "trivy not installed"
+          fi
+        continue-on-error: true

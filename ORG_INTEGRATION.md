@@ -56,6 +56,7 @@ Or use `gh api` to create/update contents programmatically (requires a PAT with 
 
 Security and permissions
 - Reusable workflows run with permissions of repository that calls them; ensure organization policies allow `actions/checkout` and runners. For sensitive org-wide policies, create process with GitHub admins to approve the template repo and tag releases.
+- Do NOT declare or pass a secret named `GITHUB_TOKEN` in the calling workflow's `workflow_call` secrets — `GITHUB_TOKEN` is reserved by GitHub and will cause the workflow to be invalid. Instead rely on the automatically-provided token and set `permissions` in the reusable workflow or the caller as needed.
 
 Versioning
 - Tag reusable workflows (create a Git tag `v1`) and update calling repos to use that tag so you can safely patch the template in `main` before creating `v2`.

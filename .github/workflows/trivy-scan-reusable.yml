@@ -1,4 +1,6 @@
 name: Trivy Scan (reusable)
+
+# Recommend callers do NOT pass a secret named GITHUB_TOKEN to the workflow_call
 on:
   workflow_call:
     inputs:
@@ -6,6 +8,14 @@ on:
         required: false
         type: string
         default: "."
+      trivy_args:
+        required: false
+        type: string
+        default: "--severity HIGH,CRITICAL"
+
+# Explicit permissions for the reusable workflow. Do not declare a secret named GITHUB_TOKEN
+permissions:
+  contents: read
 
 jobs:
   trivy:
@@ -17,8 +27,12 @@ jobs:
       - name: Install Trivy
         run: |
           sudo apt-get update
+          sudo apt-get install -y wget gnupg lsb-release
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+          echo deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main | sudo tee /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update
           sudo apt-get install -y trivy
 
       - name: Run Trivy filesystem scan
         run: |
-          trivy fs --severity HIGH,CRITICAL ${{ inputs.path }}
+          trivy fs ${{ inputs.trivy_args }} ${{ inputs.path }}

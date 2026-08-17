@@ -33,6 +33,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y trivy
 
+      - name: Resolve Maven dependencies
+        working-directory: .
+        run: ./mvnw dependency:resolve    
+
       - name: Run Trivy filesystem scan
         run: |
           trivy fs ${{ inputs.trivy_args }} ${{ inputs.path }}

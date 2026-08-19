@@ -34,8 +34,14 @@ jobs:
           sudo apt-get install -y trivy
 
       - name: Resolve Maven dependencies
-        working-directory: .
-        run: ./mvnw dependency:resolve    
+        if: ${{ hashFiles('pom.xml') != '' }}
+        run: |
+          if [ -f ./mvnw ]; then
+            chmod +x ./mvnw
+            ./mvnw dependency:resolve
+          else
+            mvn dependency:resolve
+          fi
 
       - name: Run Trivy filesystem scan
         run: |

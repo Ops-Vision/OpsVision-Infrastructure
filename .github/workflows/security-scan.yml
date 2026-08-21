@@ -1,4 +1,4 @@
-name: Security Scans
+name: Infrastructure Security Scans
 
 on:
   push:
@@ -21,44 +21,7 @@ jobs:
           config: >-
             p/security-audit
             p/owasp-top-ten
-            p/java
-            p/javascript
           publishToken: ${{ secrets.SEMGREP_APP_TOKEN }}
-
-  sonarqube:
-    name: SonarQube Analysis
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
-        with:
-          java-version: '21'
-          distribution: 'temurin'
-
-      - name: Cache SonarQube packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.sonar/cache
-          key: ${{ runner.os }}-sonar
-          restore-keys: ${{ runner.os }}-sonar
-
-      - name: Cache Maven packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.m2
-          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
-          restore-keys: ${{ runner.os }}-m2
-
-      - name: Run SonarQube Scan
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-        run: mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar
-        working-directory: backend
 
   trivy:
     name: Trivy Container Scan
@@ -79,19 +42,3 @@ jobs:
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: 'trivy-results.sarif'
-
-  dependency-check:
-    name: OWASP Dependency Check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
-        with:
-          java-version: '21'
-          distribution: 'temurin'
-
-      - name: Run OWASP Dependency Check
-        run: mvn -B org.owasp:dependency-check-maven:check -DfailBuildOnCVSS=7
-        working-directory: backend

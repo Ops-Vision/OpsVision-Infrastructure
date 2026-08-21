@@ -1,0 +1,68 @@
+# Semgrep configuration for OpsVision
+# Rulesets: security-audit, owasp-top-ten, java, javascript
+
+rules:
+  # Java-specific rules
+  - id: java-command-injection
+    pattern: |
+      Runtime.getRuntime().exec($ARG)
+    message: Potential command injection detected
+    languages: [java]
+    severity: ERROR
+
+  - id: java-sql-injection
+    pattern: |
+      Statement.executeQuery($QUERY)
+    message: Potential SQL injection - use parameterized queries
+    languages: [java]
+    severity: ERROR
+
+  - id: java-ldap-injection
+    pattern: |
+      DirContext.search($BASE, $FILTER, ...)
+    message: Potential LDAP injection
+    languages: [java]
+    severity: WARNING
+
+  - id: java-xxe
+    pattern: |
+      DocumentBuilderFactory.newInstance()
+    message: Potential XXE vulnerability - disable external entities
+    languages: [java]
+    severity: WARNING
+
+  - id: java-hardcoded-secret
+    pattern: |
+      String $SECRET = "..."
+    message: Hardcoded secret detected
+    languages: [java]
+    severity: ERROR
+
+  # JavaScript/TypeScript rules
+  - id: js-dom-xss
+    pattern: |
+      document.write($ARG)
+    message: Potential DOM XSS vulnerability
+    languages: [javascript, typescript]
+    severity: ERROR
+
+  - id: js-innerhtml-xss
+    pattern: |
+      $ELEMENT.innerHTML = $ARG
+    message: Potential XSS via innerHTML
+    languages: [javascript, typescript]
+    severity: WARNING
+
+  - id: js-eval
+    pattern: |
+      eval($ARG)
+    message: Avoid using eval - potential code injection
+    languages: [javascript, typescript]
+    severity: WARNING
+
+  - id: js-hardcoded-secret
+    pattern: |
+      const $SECRET = "..."
+    message: Hardcoded secret detected
+    languages: [javascript, typescript]
+    severity: ERROR

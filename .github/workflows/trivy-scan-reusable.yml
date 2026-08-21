@@ -1,6 +1,5 @@
 name: Trivy Scan (reusable)
 
-# Recommend callers do NOT pass a secret named GITHUB_TOKEN to the workflow_call
 on:
   workflow_call:
     inputs:
@@ -13,7 +12,6 @@ on:
         type: string
         default: "--severity HIGH,CRITICAL"
 
-# Explicit permissions for the reusable workflow. Do not declare a secret named GITHUB_TOKEN
 permissions:
   contents: read
 
@@ -24,25 +22,33 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Trivy
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y wget gnupg lsb-release
-          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
-          echo deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main | sudo tee /etc/apt/sources.list.d/trivy.list
-          sudo apt-get update
-          sudo apt-get install -y trivy
+      - name: Setup Java and Maven
+        uses: actions/setup-java@v3
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
 
-      - name: Resolve Maven dependencies
-        if: ${{ hashFiles('pom.xml') != '' }}
+      - name: Resolve Maven dependencies (if needed)
+        if: ${{ hashFiles('**/pom.xml') != '' }}
         run: |
-          if [ -f ./mvnw ]; then
-            chmod +x ./mvnw
-            ./mvnw dependency:resolve
-          else
+          POM_DIR=$(find . -name "pom.xml" -not -path "*/target/*" -exec dirname {} \; | head -1)
+          if [ -n "$POM_DIR" ]; then
+            cd "$POM_DIR"
             mvn dependency:resolve
           fi
 
-      - name: Run Trivy filesystem scan
-        run: |
-          trivy fs ${{ inputs.trivy_args }} ${{ inputs.path }}
+      # ✅ Use official Trivy Action - no need to install manually
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: ${{ inputs.path }}
+          severity: 'HIGH,CRITICAL'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results.sarif'

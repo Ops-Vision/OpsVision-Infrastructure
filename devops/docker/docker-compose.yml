@@ -1,0 +1,124 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: opsvision-postgres
+    environment:
+      POSTGRES_DB: opsvision
+      POSTGRES_USER: opsvision
+      POSTGRES_PASSWORD: opsvision
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U opsvision -d opsvision"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - opsvision-network
+
+  backend:
+    build:
+      context: ../../../OpsVision-Backend
+      dockerfile: Dockerfile
+    container_name: opsvision-backend
+    environment:
+      SERVER_PORT: "8080"
+      DB_URL: jdbc:postgresql://postgres:5432/opsvision
+      DB_USERNAME: opsvision
+      DB_PASSWORD: opsvision
+      GITHUB_API_TOKEN: ${GITHUB_API_TOKEN:-}
+      GITHUB_OWNER: ${GITHUB_OWNER:-}
+      GITHUB_REPOSITORY: ${GITHUB_REPOSITORY:-}
+      OPSVISION_AI_ENABLED: ${OPSVISION_AI_ENABLED:-false}
+      OPSVISION_AI_PROVIDER: ${OPSVISION_AI_PROVIDER:-none}
+      OPSVISION_OLLAMA_BASE_URL: ${OPSVISION_OLLAMA_BASE_URL:-http://ollama:11434}
+      OPSVISION_OLLAMA_MODEL: ${OPSVISION_OLLAMA_MODEL:-llama3.2}
+      OPSVISION_AI_BASE_URL: ${OPSVISION_AI_BASE_URL:-https://api.openai.com/v1}
+      OPSVISION_AI_API_KEY: ${OPSVISION_AI_API_KEY:-}
+      OPSVISION_AI_MODEL: ${OPSVISION_AI_MODEL:-gpt-4o-mini}
+      OPSVISION_OBSERVABILITY_ENABLED: ${OPSVISION_OBSERVABILITY_ENABLED:-false}
+      OPSVISION_PROMETHEUS_BASE_URL: http://prometheus:9090
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_SERVICE_NAME: opsvision-backend
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - opsvision-network
+
+  frontend:
+    build:
+      context: ../../../OpsVision-Frontend/frontend
+      dockerfile: ./Dockerfile
+    container_name: opsvision-frontend
+    ports:
+      - "3000:5173"
+    depends_on:
+      - backend
+    networks:
+      - opsvision-network
+
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: opsvision-prometheus
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - opsvision-network
+
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: opsvision-grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - opsvision-network
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.96.0
+    container_name: opsvision-otel-collector
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./opentelemetry/otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "8888:8888"   # Prometheus metrics
+    networks:
+      - opsvision-network
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: opsvision-ollama
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
+    networks:
+      - opsvision-network
+
+volumes:
+  postgres_data:
+  prometheus_data:
+  grafana_data:
+  ollama_data:
+
+networks:
+  opsvision-network:
+    driver: bridge

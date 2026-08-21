@@ -73,6 +73,9 @@ jobs:
             type=ref,event=branch
             type=sha
 
+      - name: Copy nginx.conf into frontend build context
+        run: cp devops/docker/nginx.conf frontend-src/frontend/nginx.conf
+
       - name: Build and push frontend
         uses: docker/build-push-action@v5
         with:

@@ -1,0 +1,22 @@
+# Secrets / local environment
+.env
+.env.*
+!.env.example
+
+# OS / editor cruft
+Thumbs.db
+Desktop.ini
+.DS_Store
+*.swp
+*.swo
+.idea/
+.vscode/
+*.code-workspace
+
+# Logs / temp
+*.log
+logs/
+tmp/
+
+# Script output
+*.ps1.bak

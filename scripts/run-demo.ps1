@@ -7,6 +7,29 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# Loads KEY=VALUE pairs from a .env file into the process environment.
+# Values already set in the current shell take priority over the file.
+function Load-DotEnv {
+    param([string]$Path)
+    if (-not (Test-Path $Path)) { return }
+    foreach ($line in Get-Content $Path) {
+        $line = $line.Trim()
+        if ($line -eq "" -or $line.StartsWith("#")) { continue }
+        $eqIndex = $line.IndexOf("=")
+        if ($eqIndex -le 0) { continue }
+        $key = $line.Substring(0, $eqIndex).Trim()
+        $value = $line.Substring($eqIndex + 1).Trim()
+        # Strip surrounding double quotes if the whole value is quoted
+        if ($value.Length -ge 2 -and $value[0] -eq '"' -and $value[$value.Length - 1] -eq '"') {
+            $value = $value.Substring(1, $value.Length - 2)
+        }
+        # Only use the file value if the variable isn't already set explicitly
+        if (-not [Environment]::GetEnvironmentVariable($key)) {
+            [Environment]::SetEnvironmentVariable($key, $value, "Process")
+        }
+    }
+}
+
 Write-Host "=== OpsVision Demo Script ===" -ForegroundColor Cyan
 
 # If cleanup flag is set, tear down everything
@@ -30,11 +53,24 @@ if (-not (Get-Command docker-compose -ErrorAction SilentlyContinue)) {
 }
 Write-Host "All prerequisites found." -ForegroundColor Green
 
-# Check for GITHUB_API_TOKEN
-if (-not $env:GITHUB_API_TOKEN) {
-    Write-Host "`nWARNING: GITHUB_API_TOKEN environment variable not set." -ForegroundColor Yellow
+# Load .env (repo root) so GitHub/AI values come from the file automatically.
+# Docker Compose reads .env itself, but PowerShell does not - loading it here
+# keeps this script and docker-compose (which inherits process env) consistent.
+$envFile = Join-Path $PSScriptRoot "..\.env"
+Load-DotEnv -Path $envFile
+
+# Check for GitHub integration variables
+$missingGitHub = @()
+if (-not $env:GITHUB_API_TOKEN) { $missingGitHub += "GITHUB_API_TOKEN" }
+if (-not $env:GITHUB_OWNER) { $missingGitHub += "GITHUB_OWNER" }
+if (-not $env:GITHUB_REPOSITORY) { $missingGitHub += "GITHUB_REPOSITORY" }
+if ($missingGitHub.Count -gt 0) {
+    Write-Host "`nWARNING: Missing GitHub integration variable(s): $($missingGitHub -join ', ')" -ForegroundColor Yellow
     Write-Host "GitHub issue creation and real repo integration will not work." -ForegroundColor Yellow
-    Write-Host "Set it with: `$env:GITHUB_API_TOKEN = 'your-token'" -ForegroundColor Yellow
+    Write-Host "Add them to the repo root .env file (Copy-Item .env.example .env):" -ForegroundColor Yellow
+    Write-Host "  GITHUB_API_TOKEN = your-token" -ForegroundColor Yellow
+    Write-Host "  GITHUB_OWNER = your-org-or-username" -ForegroundColor Yellow
+    Write-Host "  GITHUB_REPOSITORY = your-repo" -ForegroundColor Yellow
 }
 
 # Build and start services

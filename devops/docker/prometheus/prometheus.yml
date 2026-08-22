@@ -10,3 +10,16 @@ scrape_configs:
   - job_name: 'otel-collector'
     static_configs:
       - targets: ['otel-collector:8888']
+
+  - job_name: 'opsvision-backend'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['backend:8080']
+
+  # This is the workload OpsVision watches for the demo incident scenarios
+  # (DB failure / latency spike / error-rate spike). Its job label is what
+  # OPSVISION_PROMETHEUS_SERVICE_SELECTOR in docker-compose.yml matches on.
+  - job_name: 'opsvision-demo-app'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['demo-app:8080']

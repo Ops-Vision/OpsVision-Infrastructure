@@ -38,8 +38,10 @@ services:
       OPSVISION_AI_BASE_URL: ${OPSVISION_AI_BASE_URL:-https://api.openai.com/v1}
       OPSVISION_AI_API_KEY: ${OPSVISION_AI_API_KEY:-}
       OPSVISION_AI_MODEL: ${OPSVISION_AI_MODEL:-gpt-4o-mini}
-      OPSVISION_OBSERVABILITY_ENABLED: ${OPSVISION_OBSERVABILITY_ENABLED:-false}
+      OPSVISION_OBSERVABILITY_ENABLED: ${OPSVISION_OBSERVABILITY_ENABLED:-true}
       OPSVISION_PROMETHEUS_BASE_URL: http://prometheus:9090
+      OPSVISION_PROMETHEUS_SERVICE_SELECTOR: 'job="opsvision-demo-app"'
+      OPSVISION_K8S_ENABLED: "false"
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       OTEL_SERVICE_NAME: opsvision-backend
     ports:
@@ -47,6 +49,16 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    networks:
+      - opsvision-network
+
+  demo-app:
+    build:
+      context: ../../../OpsVision-DemoApp
+      dockerfile: Dockerfile
+    container_name: opsvision-demo-app
+    ports:
+      - "18080:8080"
     networks:
       - opsvision-network
 
